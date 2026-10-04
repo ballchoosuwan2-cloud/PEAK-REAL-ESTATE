@@ -309,6 +309,10 @@ export class AuthService {
       branch?: string;
       department?: string;
       title?: string;
+      monthlyTarget?: string | number;
+      monthlyCommission?: string | number;
+      targetDeals?: number;
+      completedDeals?: number;
     },
     operator: OperatorContext
   ): Promise<Omit<DbUser, 'passwordHash'>> {
@@ -357,6 +361,10 @@ export class AuthService {
     if (updates.email !== undefined) setPayload.email = updates.email.trim();
     if (updates.phone !== undefined) setPayload.phone = updates.phone.trim();
     if (updates.avatar !== undefined) setPayload.avatar = updates.avatar.trim();
+    if (updates.monthlyTarget !== undefined) setPayload.monthlyTarget = String(updates.monthlyTarget);
+    if (updates.monthlyCommission !== undefined) setPayload.monthlyCommission = String(updates.monthlyCommission);
+    if (updates.targetDeals !== undefined) setPayload.targetDeals = Number(updates.targetDeals);
+    if (updates.completedDeals !== undefined) setPayload.completedDeals = Number(updates.completedDeals);
     if (isAdmin) {
       if (updates.branch !== undefined) setPayload.branch = updates.branch.trim();
       if (updates.department !== undefined) setPayload.department = updates.department.trim();

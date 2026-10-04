@@ -19,7 +19,12 @@ import {
   Building,
   KeyRound,
   Save,
-  X
+  X,
+  TrendingUp,
+  DollarSign,
+  Minus,
+  Plus,
+  Target
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -65,6 +70,77 @@ export function ProfileView({
 
   // Alert Feedback State
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Target & KPI Editing State
+  const [editingTargetKey, setEditingTargetKey] = useState<'monthlyTarget' | 'commission' | 'deals' | null>(null);
+  const [targetSalesInput, setTargetSalesInput] = useState<string>(String(currentUser.monthlyTarget || 20000000));
+  const [commissionInput, setCommissionInput] = useState<string>(String(currentUser.monthlyCommission || 500000));
+  const [completedDealsInput, setCompletedDealsInput] = useState<number>(currentUser.completedDeals || 0);
+  const [targetDealsInput, setTargetDealsInput] = useState<number>(currentUser.targetDeals || 5);
+  const [isSavingTarget, setIsSavingTarget] = useState(false);
+
+  // Sync inputs whenever currentUser props update
+  React.useEffect(() => {
+    setTargetSalesInput(String(currentUser.monthlyTarget ?? 20000000));
+    setCommissionInput(String(currentUser.monthlyCommission ?? 500000));
+    setCompletedDealsInput(Number(currentUser.completedDeals ?? 0));
+    setTargetDealsInput(Number(currentUser.targetDeals ?? 5));
+  }, [currentUser.monthlyTarget, currentUser.monthlyCommission, currentUser.completedDeals, currentUser.targetDeals]);
+
+  // Save Target Function
+  const handleSaveTarget = async (key: 'monthlyTarget' | 'commission' | 'deals') => {
+    setIsSavingTarget(true);
+    setFeedback(null);
+    try {
+      const payload: any = {};
+      if (key === 'monthlyTarget') {
+        const val = Math.max(0, Number(targetSalesInput) || 0);
+        payload.monthlyTarget = val;
+      } else if (key === 'commission') {
+        const val = Math.max(0, Number(commissionInput) || 0);
+        payload.monthlyCommission = val;
+      } else if (key === 'deals') {
+        payload.completedDeals = Math.max(0, Number(completedDealsInput) || 0);
+        payload.targetDeals = Math.max(1, Number(targetDealsInput) || 1);
+      }
+
+      const token = localStorage.getItem('peak_auth_token') || sessionStorage.getItem('peak_auth_token');
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-user-id': currentUser.id,
+          'x-user-name': currentUser.name,
+          'x-user-role': currentUser.role,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update target');
+      }
+
+      const updatedUser: User = {
+        ...currentUser,
+        ...(key === 'monthlyTarget' ? { monthlyTarget: Number(targetSalesInput) || 20000000 } : {}),
+        ...(key === 'commission' ? { monthlyCommission: Number(commissionInput) || 500000 } : {}),
+        ...(key === 'deals' ? { completedDeals: Math.max(0, Number(completedDealsInput) || 0), targetDeals: Math.max(1, Number(targetDealsInput) || 1) } : {}),
+      };
+
+      onUpdateUser(updatedUser);
+      setEditingTargetKey(null);
+      setFeedback({
+        type: 'success',
+        message: language === 'th' ? 'บันทึกการแก้ไขเป้าหมายสำเร็จเรียบร้อยแล้ว' : 'Target updated successfully',
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to save' });
+    } finally {
+      setIsSavingTarget(false);
+    }
+  };
 
   const myContracts = contracts.filter((c) => c.agentId === currentUser.id);
   const myTotalCommission = myContracts.reduce((sum, c) => sum + (c.commissionAmount ?? c.commission ?? 0), 0);
@@ -577,30 +653,443 @@ export function ProfileView({
         )}
       </div>
 
-      {/* KPI & Commission Summary Cards */}
+      {/* KPI & Commission Summary Cards (Editable Target, Commission, Deals) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 block font-medium">Monthly Target</span>
-          <span className="text-2xl font-serif font-bold text-slate-900 block mt-1">
-            {formatTHB(Number(currentUser.monthlyTarget) || 20000000)}
-          </span>
-          <span className="text-[11px] text-slate-500 mt-1 block">Sales & Rental Target</span>
+        {/* Card 1: Monthly Target */}
+        <div
+          className={`p-5 rounded-2xl bg-white border transition-all duration-200 shadow-sm flex flex-col justify-between ${
+            editingTargetKey === 'monthlyTarget'
+              ? 'ring-2 ring-red-500/50 border-red-500 shadow-md'
+              : 'border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-red-50 text-red-600">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+                <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
+                  {language === 'th' ? 'เป้าหมายยอดขาย' : 'Monthly Target'}
+                </span>
+              </div>
+              {editingTargetKey !== 'monthlyTarget' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTargetKey('monthlyTarget');
+                    setTargetSalesInput(String(currentUser.monthlyTarget || 20000000));
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 transition-colors cursor-pointer"
+                  title={language === 'th' ? 'แก้ไขเป้าหมายยอดขาย' : 'Edit monthly target'}
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>{language === 'th' ? 'แก้ไข' : 'Edit'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingTargetKey(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  title={language === 'th' ? 'ปิด' : 'Close'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {editingTargetKey !== 'monthlyTarget' ? (
+              <div className="mt-2">
+                <span className="text-2xl font-serif font-bold text-slate-900 block tracking-tight">
+                  {formatTHB(Number(currentUser.monthlyTarget) || 20000000)}
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {language === 'th' ? 'เป้าหมายยอดขายและปล่อยเช่าประจำเดือน' : 'Sales & Rental Target'}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-2 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    {language === 'th' ? 'กำหนดยอดเป้าหมาย (บาท)' : 'Set Target Amount (THB)'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs font-bold font-mono">
+                      ฿
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000000"
+                      value={targetSalesInput}
+                      onChange={(e) => setTargetSalesInput(e.target.value)}
+                      placeholder="20000000"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm focus:outline-hidden focus:border-red-500 focus:bg-white"
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 font-mono">
+                    {language === 'th' ? 'แสดงผล: ' : 'Preview: '}
+                    <span className="font-bold text-red-600">
+                      {formatTHB(Number(targetSalesInput) || 0)}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[10000000, 20000000, 30000000, 50000000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setTargetSalesInput(String(preset))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer ${
+                        Number(targetSalesInput) === preset
+                          ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {preset >= 1000000 ? `${preset / 1000000}M` : `${preset / 1000}K`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveTarget('monthlyTarget')}
+                    disabled={isSavingTarget}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingTarget ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{language === 'th' ? 'บันทึก' : 'Save'}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetSalesInput(String(currentUser.monthlyTarget || 20000000));
+                      setEditingTargetKey(null);
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    {language === 'th' ? 'ยกเลิก' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 block font-medium">Commission Earned</span>
-          <span className="text-2xl font-serif font-bold text-emerald-700 block mt-1">
-            {formatTHB(Number(currentUser.monthlyCommission) || myTotalCommission || 0)}
-          </span>
-          <span className="text-[11px] text-slate-500 mt-1 block">Accumulated earnings</span>
+        {/* Card 2: Commission Earned */}
+        <div
+          className={`p-5 rounded-2xl bg-white border transition-all duration-200 shadow-sm flex flex-col justify-between ${
+            editingTargetKey === 'commission'
+              ? 'ring-2 ring-emerald-500/50 border-emerald-500 shadow-md'
+              : 'border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                  <DollarSign className="w-4 h-4" />
+                </span>
+                <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
+                  {language === 'th' ? 'ค่าคอมมิชชันสะสม' : 'Commission Earned'}
+                </span>
+              </div>
+              {editingTargetKey !== 'commission' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTargetKey('commission');
+                    setCommissionInput(String(currentUser.monthlyCommission || 500000));
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-600 transition-colors cursor-pointer"
+                  title={language === 'th' ? 'แก้ไขค่าคอมมิชชัน' : 'Edit commission'}
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>{language === 'th' ? 'แก้ไข' : 'Edit'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingTargetKey(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  title={language === 'th' ? 'ปิด' : 'Close'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {editingTargetKey !== 'commission' ? (
+              <div className="mt-2">
+                <span className="text-2xl font-serif font-bold text-emerald-700 block tracking-tight">
+                  {formatTHB(Number(currentUser.monthlyCommission) || myTotalCommission || 0)}
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {language === 'th' ? 'รายได้ค่าคอมมิชชันสะสม / เป้าหมาย' : 'Accumulated earnings'}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-2 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    {language === 'th' ? 'กำหนดยอดคอมมิชชัน (บาท)' : 'Set Commission Amount (THB)'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs font-bold font-mono">
+                      ฿
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50000"
+                      value={commissionInput}
+                      onChange={(e) => setCommissionInput(e.target.value)}
+                      placeholder="500000"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm focus:outline-hidden focus:border-emerald-500 focus:bg-white"
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 font-mono">
+                    {language === 'th' ? 'แสดงผล: ' : 'Preview: '}
+                    <span className="font-bold text-emerald-700">
+                      {formatTHB(Number(commissionInput) || 0)}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[100000, 300000, 500000, 1000000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCommissionInput(String(preset))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer ${
+                        Number(commissionInput) === preset
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {preset >= 1000000 ? `${preset / 1000000}M` : `${preset / 1000}K`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveTarget('commission')}
+                    disabled={isSavingTarget}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingTarget ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{language === 'th' ? 'บันทึก' : 'Save'}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCommissionInput(String(currentUser.monthlyCommission || 500000));
+                      setEditingTargetKey(null);
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    {language === 'th' ? 'ยกเลิก' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 block font-medium">Deals Closed</span>
-          <span className="text-2xl font-serif font-bold text-blue-900 block mt-1">
-            {currentUser.completedDeals || myContracts.length || 0} / {currentUser.targetDeals || 5}
-          </span>
-          <span className="text-[11px] text-slate-500 mt-1 block">Active transactions closed</span>
+        {/* Card 3: Deals Closed */}
+        <div
+          className={`p-5 rounded-2xl bg-white border transition-all duration-200 shadow-sm flex flex-col justify-between ${
+            editingTargetKey === 'deals'
+              ? 'ring-2 ring-blue-500/50 border-blue-500 shadow-md'
+              : 'border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
+                <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
+                  {language === 'th' ? 'จำนวนดีลที่ปิดสำเร็จ' : 'Deals Closed'}
+                </span>
+              </div>
+              {editingTargetKey !== 'deals' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTargetKey('deals');
+                    setCompletedDealsInput(currentUser.completedDeals || 0);
+                    setTargetDealsInput(currentUser.targetDeals || 5);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 transition-colors cursor-pointer"
+                  title={language === 'th' ? 'แก้ไขจำนวนดีล' : 'Edit deals'}
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>{language === 'th' ? 'แก้ไข' : 'Edit'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingTargetKey(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  title={language === 'th' ? 'ปิด' : 'Close'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {editingTargetKey !== 'deals' ? (
+              <div className="mt-2 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-serif font-bold text-blue-900 tracking-tight">
+                    {currentUser.completedDeals || 0}{' '}
+                    <span className="text-base font-sans font-normal text-slate-400">
+                      / {currentUser.targetDeals || 5}
+                    </span>
+                  </span>
+                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    {Math.round(((currentUser.completedDeals || 0) / Math.max(1, currentUser.targetDeals || 5)) * 100)}%
+                  </span>
+                </div>
+
+                {/* Visual Progress Bar */}
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.round(((currentUser.completedDeals || 0) / Math.max(1, currentUser.targetDeals || 5)) * 100))}%`,
+                    }}
+                  />
+                </div>
+
+                <span className="text-[11px] text-slate-500 block">
+                  {language === 'th' ? 'จำนวนดีลปิดการขายสำเร็จเทียบกับเป้าหมาย' : 'Active transactions closed'}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-2 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      {language === 'th' ? 'ปิดสำเร็จแล้ว' : 'Completed'}
+                    </label>
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setCompletedDealsInput(Math.max(0, completedDealsInput - 1))}
+                        className="px-2.5 py-2 rounded-l-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 border-r-0 cursor-pointer"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        value={completedDealsInput}
+                        onChange={(e) => setCompletedDealsInput(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full py-2 px-1 text-center bg-slate-50 border-y border-slate-300 text-slate-900 font-mono text-sm focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCompletedDealsInput(completedDealsInput + 1)}
+                        className="px-2.5 py-2 rounded-r-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 border-l-0 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      {language === 'th' ? 'เป้าหมายทั้งหมด' : 'Target'}
+                    </label>
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setTargetDealsInput(Math.max(1, targetDealsInput - 1))}
+                        className="px-2.5 py-2 rounded-l-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 border-r-0 cursor-pointer"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={targetDealsInput}
+                        onChange={(e) => setTargetDealsInput(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full py-2 px-1 text-center bg-slate-50 border-y border-slate-300 text-slate-900 font-mono text-sm focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTargetDealsInput(targetDealsInput + 1)}
+                        className="px-2.5 py-2 rounded-r-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 border-l-0 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {language === 'th' ? 'ความสำเร็จ: ' : 'Progress: '}
+                  <span className="font-bold text-blue-700">
+                    {completedDealsInput} / {targetDealsInput} ดีล (
+                    {Math.round((completedDealsInput / Math.max(1, targetDealsInput)) * 100)}%)
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveTarget('deals')}
+                    disabled={isSavingTarget}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingTarget ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{language === 'th' ? 'บันทึก' : 'Save'}</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompletedDealsInput(currentUser.completedDeals || 0);
+                      setTargetDealsInput(currentUser.targetDeals || 5);
+                      setEditingTargetKey(null);
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    {language === 'th' ? 'ยกเลิก' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

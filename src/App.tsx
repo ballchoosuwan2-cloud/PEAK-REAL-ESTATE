@@ -781,6 +781,19 @@ export default function App() {
 
   // 8. Users
   const handleSaveUser = async (u: User) => {
+    // Optimistic local update
+    setDb((prev) => {
+      const exists = prev.users.some((x) => x.id === u.id);
+      const updated = exists
+        ? prev.users.map((x) => (x.id === u.id ? { ...x, ...u } : x))
+        : [{ ...u }, ...prev.users];
+      return {
+        ...prev,
+        users: updated,
+        currentUser: prev.currentUser?.id === u.id ? { ...prev.currentUser, ...u } : prev.currentUser,
+      };
+    });
+
     try {
       const exists = db.users.some((x) => x.id === u.id);
       const endpoint = exists ? `/api/users/${u.id}` : '/api/users';
@@ -802,22 +815,13 @@ export default function App() {
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        alert(`Error saving user: ${errJson.error || res.statusText}`);
-        return;
+        console.warn(`User backend sync warning: ${errJson.error || res.statusText}`);
       }
 
       await refreshUsersFromBackend();
       logActivity('Users', 'SAVE_USER', `Saved user ${u.name} (${u.role}) on PostgreSQL`, u.id);
     } catch (err: any) {
       console.error('Failed to save user to backend:', err);
-      // Fallback local update
-      setDb((prev) => {
-        const exists = prev.users.some((x) => x.id === u.id);
-        const updated = exists
-          ? prev.users.map((x) => (x.id === u.id ? u : x))
-          : [u, ...prev.users];
-        return { ...prev, users: updated };
-      });
     }
   };
 

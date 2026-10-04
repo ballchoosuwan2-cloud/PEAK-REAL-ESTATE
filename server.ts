@@ -1662,15 +1662,16 @@ async function startServer() {
       const operator = getUserFromReq(req);
       const operatorRole = normalizeRole(operator.role);
 
-      // Backend permission check: Agents cannot update users
-      if (operatorRole !== 'Admin' && operatorRole !== 'Manager') {
+      const targetUserId = req.params.id;
+
+      // Backend permission check: Admin or Manager can update anyone; Agents can update their own profile
+      if (operatorRole !== 'Admin' && operatorRole !== 'Manager' && operator.id !== targetUserId) {
         return res.status(403).json({
           success: false,
-          error: 'Forbidden: Insufficient permissions to edit users. Requires Admin or Manager role.',
+          error: 'Forbidden: Insufficient permissions to edit other users. Requires Admin or Manager role.',
         });
       }
 
-      const targetUserId = req.params.id;
       const targetUser = await userService.getUserById(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ success: false, error: 'User not found' });
