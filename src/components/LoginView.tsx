@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PeakLogo } from './PeakLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 import { Lock, Mail, User, Eye, EyeOff, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 import { Language, translations } from '../lib/i18n';
 
@@ -112,15 +113,18 @@ export function LoginView({
             PEAK SECURE PORTAL
           </span>
         </div>
-        {onLanguageToggle && (
-          <button
-            onClick={onLanguageToggle}
-            type="button"
-            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-600 transition-all"
-          >
-            {language === 'th' ? 'EN' : 'ไทย'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <PWAInstallButton language={language} variant="header" />
+          {onLanguageToggle && (
+            <button
+              onClick={onLanguageToggle}
+              type="button"
+              className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-600 transition-all cursor-pointer"
+            >
+              {language === 'th' ? 'EN' : 'ไทย'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Login Card */}

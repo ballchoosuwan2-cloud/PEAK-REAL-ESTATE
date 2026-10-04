@@ -802,18 +802,25 @@ function initDatabase() {
         const userCount = Number(userCountCheck.rows[0]?.count || 0);
 
         if (userCount === 0) {
+          const defaultPasswordHash = 'a1b2c3d4e5f60718293a4b5c6d7e8f90:ecfc08ff49d2f18757e682999d4d0645456c1a3f693b326ef271c88c13cf569ac09b54c48a50bc1020c586b4004003ee333c733e6a00560948c8c9818fc30f7c';
           await originalExec(`
-            INSERT INTO users (id, name, email, username, role, phone, avatar, branch, department, title, is_active, status, permissions, monthly_target, monthly_commission, target_deals, completed_deals)
+            INSERT INTO users (id, name, email, username, role, phone, avatar, branch, department, title, is_active, status, permissions, monthly_target, monthly_commission, target_deals, completed_deals, password_hash)
             VALUES
-            ('user-admin-1', 'Administrator', 'admin@peakrealestate.com', 'administrator', 'Admin', '081-899-7701', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80', 'Headquarters (Phuket)', 'Executive Management', 'Managing Director & Lead Broker', true, 'Active', '["View", "Create", "Edit", "Archive", "Restore"]', 50000000, 1500000, 10, 8),
-            ('user-mgr-1', 'Nichada Prasert', 'nichada@peakrealestate.com', 'manager_nichada', 'Manager', '089-445-1234', 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&h=200&q=80', 'Headquarters (Phuket)', 'Operations & Sales', 'Senior Operations & Sales Manager', true, 'Active', '["View", "Create", "Edit", "Archive", "Restore"]', 30000000, 750000, 8, 6),
-            ('user-agt-1', 'Kittisak Vong', 'kittisak@peakrealestate.com', 'agent_kittisak', 'Agent', '092-778-9901', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&h=200&q=80', 'Bang Tao Branch', 'Sales', 'Luxury Villa Specialist', true, 'Active', '["View", "Create", "Edit"]', 25000000, 500000, 6, 4),
-            ('usr-1', 'Somchai Prasert', 'somchai@peakrealestate.com', 'agent_somchai', 'Agent', '081-234-5678', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&h=200&q=80', 'Rawai Branch', 'Sales', 'Senior Property Consultant', true, 'Active', '["View", "Create", "Edit"]', 20000000, 400000, 5, 3)
+            ('user-admin-1', 'Administrator', 'admin@peakrealestate.com', 'administrator', 'Admin', '081-899-7701', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80', 'Headquarters (Phuket)', 'Executive Management', 'Managing Director & Lead Broker', true, 'Active', '["View", "Create", "Edit", "Archive", "Restore"]', 50000000, 1500000, 10, 8, '${defaultPasswordHash}'),
+            ('user-mgr-1', 'Nichada Prasert', 'nichada@peakrealestate.com', 'manager_nichada', 'Manager', '089-445-1234', 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&h=200&q=80', 'Headquarters (Phuket)', 'Operations & Sales', 'Senior Operations & Sales Manager', true, 'Active', '["View", "Create", "Edit", "Archive", "Restore"]', 30000000, 750000, 8, 6, '${defaultPasswordHash}'),
+            ('user-agt-1', 'Kittisak Vong', 'kittisak@peakrealestate.com', 'agent_kittisak', 'Agent', '092-778-9901', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&h=200&q=80', 'Bang Tao Branch', 'Sales', 'Luxury Villa Specialist', true, 'Active', '["View", "Create", "Edit"]', 25000000, 500000, 6, 4, '${defaultPasswordHash}'),
+            ('usr-1', 'Somchai Prasert', 'somchai@peakrealestate.com', 'agent_somchai', 'Agent', '081-234-5678', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&h=200&q=80', 'Rawai Branch', 'Sales', 'Senior Property Consultant', true, 'Active', '["View", "Create", "Edit"]', 20000000, 400000, 5, 3, '${defaultPasswordHash}')
             ON CONFLICT (email) DO NOTHING;
           `).catch((err) => {
             console.warn('Users baseline seed notice:', err);
           });
         }
+        // Ensure any existing user without a password has the default password hash populated
+        await originalExec(`
+          UPDATE users
+          SET password_hash = 'a1b2c3d4e5f60718293a4b5c6d7e8f90:ecfc08ff49d2f18757e682999d4d0645456c1a3f693b326ef271c88c13cf569ac09b54c48a50bc1020c586b4004003ee333c733e6a00560948c8c9818fc30f7c'
+          WHERE password_hash IS NULL OR password_hash = '';
+        `).catch(() => {});
       } catch (e) {
         console.warn('Failed to auto-execute DDL on PGlite:', e);
       }

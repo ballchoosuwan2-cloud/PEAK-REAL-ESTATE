@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { translations, Language } from '../lib/i18n';
 import { PeakLogo } from './PeakLogo';
 import { AppDatabase, STORAGE_KEY } from '../lib/storage';
+import { PWAInstallButton } from './PWAInstallButton';
 import { User } from '../types';
 import { B28_PERMISSION_KEYS } from '../lib/permissions';
 import {
@@ -522,6 +523,7 @@ export function SettingsView({
           </div>
 
           <div className="flex items-center gap-2">
+            <PWAInstallButton language={language} variant="header" />
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                 isAdmin

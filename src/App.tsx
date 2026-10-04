@@ -38,6 +38,7 @@ import { RecordsView } from './components/RecordsView';
 import { UsersManagementView } from './components/UsersManagementView';
 import { ProfileView } from './components/ProfileView';
 import { SettingsView } from './components/SettingsView';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { PaymentManagementView } from './components/PaymentManagementView';
 import { AddAllView } from './components/AddAllView';
 import { LoginView } from './components/LoginView';
@@ -1204,6 +1205,9 @@ export default function App() {
           maintenance: urgentIssuesCount,
         }}
       />
+
+      {/* Offline Status Toast */}
+      <OfflineIndicator language={language} />
     </div>
   );
 }

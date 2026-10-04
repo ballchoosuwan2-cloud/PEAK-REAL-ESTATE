@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PeakLogo } from './PeakLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 import { User, AppNotification, UserRole } from '../types';
 import { translations, Language } from '../lib/i18n';
 import {
@@ -83,6 +84,9 @@ export function Header({
 
         {/* Right Section Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* In-App PWA Install Button */}
+          <PWAInstallButton language={language} variant="header" />
+
           {/* Language Toggle */}
           <button
             onClick={handleLangClick}
